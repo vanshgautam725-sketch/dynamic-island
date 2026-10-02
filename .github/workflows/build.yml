@@ -12,31 +12,40 @@ jobs:
 
       - name: Extract Project ZIP
         run: |
-          unzip -o *.zip -d .
+          mkdir -p extracted
+          unzip -o *.zip -d extracted/
+          if [ -f extracted/package.json ]; then
+            cp -r extracted/* .
+          else
+            cp -r extracted/*/* . 2>/dev/null || true
+          fi
           ls -la
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: 17
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Generate Android Folder
-        run: npx expo prebuild --platform android --clean
+        run: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Build Standalone APK
-        run: cd android && ./gradlew assembleRelease
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK File
         uses: actions/upload-artifact@v4
         with:
           name: Dynamic-Island-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/debug/*.apk
