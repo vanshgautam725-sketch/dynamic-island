@@ -10,15 +10,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract Project ZIP
+      - name: Unpack Everything Smartly
         run: |
-          mkdir -p extracted
-          unzip -o *.zip -d extracted/
-          if [ -f extracted/package.json ]; then
-            cp -r extracted/* .
-          else
-            cp -r extracted/*/* . 2>/dev/null || true
+          echo "=== FILES BEFORE UNZIP ==="
+          ls -la
+          mkdir -p unpacked
+          find . -maxdepth 2 -name "*.zip" -exec unzip -o {} -d ./unpacked \;
+          
+          # Find where package.json is hiding inside unpacked
+          PKG_PATH=$(find ./unpacked -name "package.json" | head -n 1)
+          if [ -n "$PKG_PATH" ]; then
+            PKG_DIR=$(dirname "$PKG_PATH")
+            echo "Found files in: $PKG_DIR"
+            cp -r $PKG_DIR/* .
           fi
+          
+          echo "=== FILES AFTER UNPACKING ==="
           ls -la
 
       - name: Setup Node.js
@@ -35,10 +42,16 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Ensure app.json
+        run: |
+          if [ ! -f app.json ]; then
+            echo '{"expo":{"name":"Dynamic Island","slug":"dynamic-island","version":"1.0.0","android":{"package":"com.veletify.dynamicisland","permissions":["SYSTEM_ALERT_WINDOW","FOREGROUND_SERVICE"]}}}' > app.json
+          fi
+
       - name: Generate Android Folder
         run: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Build Debug APK
+      - name: Compile Debug APK
         run: |
           cd android
           chmod +x gradlew
