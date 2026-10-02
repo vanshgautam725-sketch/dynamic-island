@@ -12,21 +12,13 @@ jobs:
 
       - name: Unpack Everything Smartly
         run: |
-          echo "=== FILES BEFORE UNZIP ==="
-          ls -la
           mkdir -p unpacked
           find . -maxdepth 2 -name "*.zip" -exec unzip -o {} -d ./unpacked \;
-          
-          # Find where package.json is hiding inside unpacked
           PKG_PATH=$(find ./unpacked -name "package.json" | head -n 1)
           if [ -n "$PKG_PATH" ]; then
             PKG_DIR=$(dirname "$PKG_PATH")
-            echo "Found files in: $PKG_DIR"
             cp -r $PKG_DIR/* .
           fi
-          
-          echo "=== FILES AFTER UNPACKING ==="
-          ls -la
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,20 +34,28 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Ensure app.json
+      - name: Ensure app.json and index.js
         run: |
           if [ ! -f app.json ]; then
             echo '{"expo":{"name":"Dynamic Island","slug":"dynamic-island","version":"1.0.0","android":{"package":"com.veletify.dynamicisland","permissions":["SYSTEM_ALERT_WINDOW","FOREGROUND_SERVICE"]}}}' > app.json
+          fi
+          if [ ! -f index.js ]; then
+            echo "import { registerRootComponent } from 'expo'; import App from './App'; registerRootComponent(App);" > index.js
           fi
 
       - name: Generate Android Folder
         run: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Compile Debug APK
+      - name: Bundle JavaScript Offline Assets
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/ || true
+
+      - name: Compile Standalone Offline APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug -PbundleInDebug=true --no-daemon
 
       - name: Upload APK File
         uses: actions/upload-artifact@v4
