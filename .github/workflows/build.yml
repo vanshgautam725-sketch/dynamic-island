@@ -1,0 +1,42 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract Project ZIP
+        run: |
+          unzip -o *.zip -d .
+          ls -la
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate Android Folder
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build Standalone APK
+        run: cd android && ./gradlew assembleRelease
+
+      - name: Upload APK File
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dynamic-Island-APK
+          path: android/app/build/outputs/apk/release/*.apk
